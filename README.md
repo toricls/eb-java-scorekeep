@@ -1,15 +1,18 @@
 # Scorekeep
-Scorekeep is a RESTful web API implemented in Java that uses Spring to provide an HTTP interface for creating and managing game sessions and users. This project includes the Scorekeep API and a front-end web app that consumes it. The front end and API can run on the same server and domain or separately, with the API running in Elastic Beanstalk and the front end served statically by a CDN.
+Scorekeep は Java で実装された RESTful な Web API で、ゲームセッションやユーザー管理のための HTTP のインタフェースを Spring を使って提供しています。このプロジェクトは Scorekeep API とその API を呼び出すフロントエンドのウェブアプリで構成されています。フロントエンドアプリケーションと APIA は同一サーバー・同一ドメインで実行することもできますし、別々、例えば API は Fargate で実行されるコンテナから、フロントエンドは静的コンテンツとして CDN 経由で公開することも可能です。
 
-The `fargate` branch shows the use of Spring, Angular, nginx, the [AWS SDK for Java](http://aws.amazon.com/sdkforjava), [Amazon DynamoDB](http://aws.amazon.com/dynamodb), Gradle, and [AWS ECS Fargate](http://aws.amazon.com/ecs) features that enable you to:
+`fargate` ブランチは Spring, Angular, nginx, [AWS SDK for Java](http://aws.amazon.com/sdkforjava), [Amazon DynamoDB](http://aws.amazon.com/dynamodb), Gradle, [Amazon ECS + AWS Fargate](http://aws.amazon.com/ecs) を利用して次のようなことを行なっていきます:
 
-- Run both components in the same [Amazon ECS](http://aws.amazon.com/ecs) task definition behind an [Amazon Application Load Balancer](https://aws.amazon.com/elasticloadbalancing/)
-- Create required DynamoDB and [Amazon SNS](http://aws.amazon.com/sns) resources through Cloudformation
-- Publishes container logs to [Amazon Cloudwatch Logs](https://aws.amazon.com/cloudwatch)
+- 両方のコンポーネントを単一の [Amazon ECS](http://aws.amazon.com/ecs) タスク定義に定義し、[Amazon Application Load Balancer](https://aws.amazon.com/elasticloadbalancing/) の後ろに配置する
+- CloudFormation を使って、ハンズオンで必要となる DynamoDB と [Amazon SNS](http://aws.amazon.com/sns) リソースを作成します
+- コンテナから出力されるログを [Amazon Cloudwatch Logs](https://aws.amazon.com/cloudwatch) に集めます
 
-Other branches extend the application's functionality and show the use of other AWS services. See the readme in each branch for details about the integration and instructions for use.
+その他のブランチでは異なるサービスの組み合わせを使ってアプリケーションを動かすことを学べます。詳細は各ブランチの README.md ファイルをご覧ください。
 
-**Branches**
+**その他のブランチの例 (English)**
+<details><summary>Click to see details</summary>
+<p>
+
 - [`master`](https://github.com/awslabs/eb-java-scorekeep/tree/master) - Original [AWS Elastic Beanstalk](https://aws.amazon.com/elasticbeanstalk/) scorekeep application.
 - [`cognito`](https://github.com/awslabs/eb-java-scorekeep/tree/cognito) - Support login and store users in an [Amazon Cognito](http://aws.amazon.com/cognito) user pool. Get AWS SDK credentials and make service calls with a Cognito identity pool.
 - [`cognito-basic`](https://github.com/awslabs/eb-java-scorekeep/tree/cognito-basic) - Use Cognito for user ID storage. User pool only, no identity pool.
@@ -21,143 +24,161 @@ Other branches extend the application's functionality and show the use of other 
 - [`xray-gettingstarted`](https://github.com/awslabs/eb-java-scorekeep/tree/xray-gettingstarted) ([tutorial](https://docs.aws.amazon.com/xray/latest/devguide/xray-gettingstarted.html)) - Use the AWS X-Ray SDK for Java to instrument incoming requests and SDK clients (no additional configuration required).
 - [`xray-worker`](https://github.com/awslabs/eb-java-scorekeep/tree/xray-worker) - Instrumented Python Lambda worker function from the `lambda-worker` branch.
 
-Use the procedures in the following sections to run the project on Fargate and configure it for local testing and development.
+</p>
+</details>
 
-**Sections**
-- [Prerequisites](#prerequisites)
-- [Repository Layout](#repository-layout)
-- [Cloudformation Setup](#cloudformation-setup)
-- [Building the Java application](#building-the-java-application)
-- [How it works](#how-it-works)
-- [Running the project locally](#running-the-project-locally)
-- [Contributing](#contributing)
+続くセクションで Fargate を使ったアプリケーションの実行、ローカル環境でテスト・開発について見ていきましょう。
 
-# Prerequisites
-Install the following tools to create Docker images, upload them to ECR, and register task definitions with ECS.
+**セクション一覧**
+- [前提条件](#前提条件)
+- [リポジトリ構成](#リポジトリ構成)
+- [CloudFormation セットアップ](#cloudformation-セットアップ)
+- [Java アプリケーションのビルド・構築](#Java-アプリケーションのビルド・構築)
+- [アプリケーション構成の解説](#アプリケーション構成の解説)
+- [ローカル環境でアプリケーションを実行する](#ローカル環境でアプリケーションを実行する)
+- [コントリビューション](#コントリビューション)
+
+# 前提条件
+Docker イメージの作成、ECR へのイメージのアップロード、ECS へのタスク定義の登録を行うために以下ツールのインストールが必要です
 - Docker
-- AWS CLI v1.14.0+
-- AWS user with permission for IAM, DynamoDB, SNS, ECS, CloudWatch Logs, and ECR
+- AWS CLI v1.14.0 以降(最新版が望ましい)
 
-# Repository Layout
-The project contains two independent applications:
+また、少なくとも以下の権限を持つ AWS IAM ユーザーが必要です
+- IAM、DynamoDB、SNS、ECS、CloudWatch Logs、ECR へのフルアクセス権限
+- CloudFormation でのスタック作成権限
 
-- An HTML and JavaScript front end in Angular 1.5 to be ran with Nginx
-- A Java backend that uses Spring to provide a public API
+# リポジトリ構成
+このリポジトリには2つの独立して動作するアプリケーションが含まれています:
 
-The backend and frontend are both built using `docker` and `make`. Docker images are published to Amazon ECR.
+- フロントエンドアプリケーション: HTML + JavaScript(Angular 1.5) で構成され、Nginx で実行される
+- バックエンドアプリケーション: Spring を利用して API を公開する Java アプリケーション
+
+バックエンド・フロントエンドの両アプリケーションは `docker` と `make` を利用してビルドされます。作成される Docker イメージは Amazon ECR に格納されます。
 
 | Directory | Contents                                        | Build           | Package         | Publish        | Clean         |
 |-----------|-------------------------------------------------|-----------------|-----------------|----------------|---------------|
-| `/`       | Contains the Java Backend (aka `scorekeep-api`) | `make build`   | `make package`  | `make publish` | `make clean`   |
-| `/scorekeep-frontend` | Contains the Angular+Nginx frontend |  N/A            | `make package`  | `make publish`  |  N/A         |
-| `/task-definition` |  Contains template to generata a Task Definition | `./generate-task-definition` | N/A | aws ecs register-task-definition --cli-input-json file://scorekeep-task-definition.json | N/A |
-| `/cloudformation` | Contains the Cloudformation template for creating the dependant resources (i.e. DynamoDB, SNS, CWL, ECR, and IAM) | N/A | N/A | `make stack` | `make clean` |
+| `/`       | Java バックエンドアプリケーション (別名 `scorekeep-api`) | `make build`   | `make package`  | `make publish` | `make clean`   |
+| `/scorekeep-frontend` | Angular + Nginx のフロントエンドアプリケーション |  N/A            | `make package`  | `make publish`  |  N/A         |
+| `/task-definition` | ECS 用タスク定義を生成するためのテンプレート | `./generate-task-definition` | N/A | aws ecs register-task-definition --cli-input-json file://scorekeep-task-definition.json | N/A |
+| `/cloudformation` | 依存リソース(i.e. DynamoDB, SNS, CWL, ECR, IAM)を作成するための CloudFormation テンプレート | N/A | N/A | `make stack` | `make clean` |
 
-# Cloudformation setup
+# CloudFormation セットアップ
 
-The pre-requisite resources can be setup using Cloudformation. 
+このプロジェクトでは、アプリケーションから利用する AWS リソースをセットアップしやすいよう、CloudFormation テンプレートが用意されています。
 
-The Cloudformation template requires no paramaters and can be ran by executing `make publish` from the directory. It will use the `AWS_REGION` configured in `aws.env` in the root of the package, and the default credentials from the AWS CLI. IAM permissions are needed for the Cloudformation stack to run successfully.
+用意された CloudFormation テンプレートは、テンプレートが格納されたディレクトリで `make publish` コマンドを実行することでリソースのプロビジョンが実行されます。同コマンドは内部的に AWS CLI を実行しますが、その際リポジトリルートに置かれた `aws.env` ファイルの `AWS_REGION` パラメータと、default クレデンシャルを利用します。CloudFormation スタックが正常に作成されるためには、default クレデンシャルが CloudFormation のスタック作成とテンプレート内で指定されているリソースの作成権限を有している必要がある点に留意してください。
 
-# Building the Java application
+# Java アプリケーションのビルド・構築
 
-The Java application is built using the gradle Docker container so it does not rely on your local Java or Gradle setup. The output of the build process appears in the `build/` folder of the project. After you build the application you will want to package it into a docker container so it can be executed. The docker container packaging takes the JAR produced from the build step and adds it to a Java base image. It then configures the environment, ports, and entry point. The docker can be ran locally with valid AWS credentials, or ran on ECS.
+Java アプリケーションは Gradle Docker コンテナを利用してビルドされるため、ビルドコマンドを実行するローカル環境に Java や Gradle がセットアップされている必要はありません。ビルド成果物は `build/` ディレクトリ以下に出力されます。アプリケーションのビルド後、パッケージングを実行すると、ビルドプロセスにて生成された JAR ファイルが Java ベースイメージにコピーされ、バックエンドアプリケーションの Docker イメージが出来上がります。出来上がった Docker イメージは適切な AWS クレデンシャルを渡して実行することでローカルでも実行できますし、もちろん ECS でも実行できます。
 
-# Deploying the application
+# アプリケーションのデプロイ手順
 
-*To deploy the containers to your AWS Account*
+*依存リソースの作成からデプロイまでの手順*
 
-1. Setup the Cloudformation stack to create the prerequisite resources by executing `make stack` in the `cloudformation/` folder
-2. Build and Publish your API container to the ECR repository created by Cloudformation executing `make publish` in the root folder
-3. Build and Publish your Frontend container to the ECR repository created by Cloudformation executing `make publish` in the `scorekeep-frontend/` folder
-4. Populate your Task Definition with the correct region and account id using the `generate-task-definition` script in the `task-definition` folder
-5. Register your Task Definition to ECS with `aws ecs register-task-definition --cli-input-json file://scorekeep-task-definition.json`
-6. Launch your Service or Task using the AWS CLI, ECS CLI, or AWS Management Console
+0. `aws.env` ファイル内のパラメーターを編集します。(AWS アカウント ID は https://console.aws.amazon.com/billing/home?#/account で確認できます)
+1. `cloudformation/` ディレクトリに移動し、`make stack` コマンドを実行し、アプリケーションが必要とするリソースを CloudFormation を利用して作成します。
+2. リポジトリのルートディレクトリに移動し、`make publish` コマンドを実行します。これにより API コンテナがビルドされ、ステップ 1 の CloudFormation によって作成された ECR リポジトリにコンテナイメージがプッシュされます。(再ビルドを行う際は `make publish` コマンドの実行前に `make clean` コマンドを実行してください)
+3. `scorekeep-frontend/` ディレクトリに移動し、`make publish` コマンドを実行します。これによりフロントエンドアプリケーションのコンテナイメージがビルドされ、こちらもステップ 1 の CloudFormation によって作成された ECR リポジトリにコンテナイメージがプッシュされます。
+4. `task-definition` ディレクトリに移動し、`generate-task-definition` スクリプトを実行します。これにより、使用している AWS アカウント ID やリージョンなどの情報を含めた ECS 用タスク定義ファイルが生成されます。
+5. `aws ecs register-task-definition --cli-input-json file://scorekeep-task-definition.json --region us-west-2` コマンドを実行し、ECS にタスク定義を登録します(注: `--region` オプションは実際に利用しているリージョンに合わせて変更してください)
+6. 以上で ECS サービスを実行する準備が完了です！次に進みましょう。
 
-To create a Fargate Service for Scorekeep with the ECS console
+今回はマネジメントコンソールを使って AWS Fargate を利用する ECS サービスを作成します
 
-1. Open [the ECS console](https://console.aws.amazon.com/ecs/home).
-2. Click **Create cluster**.
-3. Select **Networking only** and click **Next step**.
-4. Enter *scorekeep-cluster* for the cluster name and click **Create**.
-5. Choose **View cluster**.
-6. Under **Services**, click **Create**.
-7. Create a service with the following settings. Click **Next Step** to proceed through each page as necessary.
-  - Launch type: **Fargate**
-  - Task definition: **scorekeep:1**
-  - Platform version: **latest**
-  - Cluster: **scorekeep-cluster**
-  - Service name: **scorekeep-service**
-  - Number of tasks: **4**
-  - Minimum healthy percent: **50**
-  - Maximum percent: **200**
-  - Cluster VPC: **scorekeep**
-  - Subnets: both **scorekeep_Private** subnets
-  - Security groups: click Edit > Select existing > select **default**
-  - Auto-assign public IP: **enabled**
-  - Load balancer type: **Application load balancer**
-  - Load balancer name: **scorekeep-lb**
-  - Container name: **scorekeep-frontend** (click **Add to load balancer**)
-  - Listener port: **80:HTTP**
-  - Target group name: **Create new**
-  - Path pattern: /*
-  - Health check pattern: /
-  - Service auto scaling: **Do not adjust**
-8. Choose **View service**.
-9. Open the [load balancers screen](https://console.aws.amazon.com/ec2/v2/home#LoadBalancers:) in the EC2 console.
-10. Choose **scorekeep-lb**.
-11. Under **Description**, copy the **DNS name** and open it.
+1. マネジメントコンソールで [ECS](https://console.aws.amazon.com/ecs/home) の画面を開きます (注: 適切なリージョンが選択されているか確認しましょう)
+2. **クラスターの作成**をクリック
+3. **ネットワーキングのみ**を選択し、**次のステップ**をクリック
+4. クラスター名に *${IAMユーザー名}-scorekeep-cluster* と入力し、**作成**をクリック
+5. **クラスターの表示**をクリック
+6. **サービス**タブが選択されていることを確認し、**作成**をクリック
+7. 以下の設定でサービスを作成します。サービスの作成はウィザード形式で進みます。必要に応じて**次のステップ**をクリックし、ウィザードを進めてください。画面上に存在する値で下記で言及されていない項目はデフォルト値のまま進めて構いません。
+  - 起動タイプ: **FARGATE**
+  - タスク定義 - Family: **${IAMユーザー名}-scorekeep**
+  - タスク定義 - Revision: **1 (latest)**
+  - プラットフォームのバージョン: **LATEST**
+  - クラスター: **${IAMユーザー名}-scorekeep-cluster**
+  - サービス名: **${IAMユーザー名}-scorekeep-service**
+  - タスクの数: **4**
+  - 最小ヘルス率: **50**
+  - 最大率: **200**
+  - クラスター VPC: **${IAMユーザー名}-scorekeep**
+  - サブネット: **${IAMユーザー名}-scorekeep_Private** が2つありますので、両方を選択します
+  - セキュリティグループ: **編集**をクリック > **既存のセキュリティグループの選択**を選択 > **default** を選択 > **保存**をクリック
+  - パブリック IP の自動割り当て: **ENABLED**
+  - ELB type: **Application Load Balancer**
+  - ELB 名: **${IAMユーザー名}-scorekeep-lb**
+  - コンテナの選択: **scorekeep-frontend:8080:8080** が選ばれていることを確認して **ELB への追加**をクリック
+  - リスナーポート: **新規作成**が選ばれていることを確認して **80** と入力
+  - ターゲットグループ名: **新規作成** (*ターゲットグループ名 は最大 32 文字を超えることはできません。*というエラーが出ている場合、インプットボックスに自動入力されている名前を適度に変更してください。インプットボックスからフォーカスを外すと再度バリデーションが実行され、32文字以内に収まっている場合はエラーメッセージが消えます)
+  - ヘルスチェックパス: /
+  - サービスの検出の統合の有効化: チェックを外します
+  - Service auto scaling: **サービスの必要数を直接調整しない**
+  - 「サービスの確認」画面が表示されるので、**サービスの作成**をクリック
+8. **サービスの表示**をクリック
+9. マネジメントコンソールで [ELB](https://console.aws.amazon.com/ec2/v2/home#LoadBalancers:) の画面を開きます (注: 適切なリージョンが選択されているか確認しましょう)
+10. **${IAMユーザー名}-scorekeep-lb** のチェックボックスを選択
+11. **説明**タブが開かれていることを確認し、**DNS 名**の値をコピーします
+12. コピーした DNS 名をブラウザで開きます
+
+画面が表示されたら、以下のスクリーンショットのような流れで操作することでデプロイしたアプリケーション群の機能を確認することができます。ブラウザのネットワークコンソールを利用し、画面操作に合わせて API を通して DynamoDB に対してユーザー、セッション、ゲーム、マスの選択が読み書きされていることを確認しましょう。
 
 ![Scorekeep flow](/img/scorekeep-flow.png)
 
-Click through the app to explore its functionality. Use the network console in your browser to see the HTTP requests that it sends to the API to read and write users, sessions, games, moves, and game state to DynamoDB via the API.
+# 通知を設定する(任意)
+バックエンドアプリケーション(API)は、ゲームの勝敗が決したタイミングで SNS を利用して指定されたEメールアドレスに対して通知を送ることができます。Eメール通知を有効にするには、タスク定義のバックエンドアプリケーション(API)用の環境変数にキー名 **NOTIFICATION_EMAIL**、値を通知先のメールアドレスを追加し、タスク定義を登録、ECS サービスを再デプロイします。
 
-# Configuring notifications
-The API uses SNS to send a notification email when a game ends. To enable e-mail notifications, to an email address to your Task Definition in environment variable **NOTIFICATION_EMAIL**. To enable other notifications add the subscription to the topic through the SNS console.
+注: 事前に SNS コンソールにて SNS トピックに対して通知先Eメールアドレスをサブスクリプションとして登録しておく必要があります
 
-# How it works
+# アプリケーション構成の解説
 
-## Backend
-The API runs at paths under /api that provide access to user, session, game, state, and move resources stored as JSON documents in DynamoDB. The API is RESTful, so you can create resources by sending HTTP POST requests to the resource path, for example /api/session. See the [test script](https://github.com/awslabs/eb-java-scorekeep/blob/fargate/bin/test-api.sh) for example requests with cURL.
+## バックエンド
+API は /api パス以下でリクエストを待ち受けており、JSON ドキュメントとして DynamoDB に格納されたユーザー、セッション、ゲーム、状態、そしてマスの選択へのアクセスを提供します。
+RESTful API として実装されているため、例えば /api/session に対して HTTP POST リクエストを送信することでセッションを作成することができます。同様のリクエストを cURL コマンドで送信する例が [bin/test-api.sh](https://github.com/toricls/eb-java-scorekeep/blob/fargate/bin/test-api.sh) にありますので、合わせてご確認ください。
 
-The Cloudformation template creates a DynamoDB table for each resource type.
+それぞれのリソース(ユーザー、セッション...)用の DynamoDB テーブルは手順の序盤で利用した CloudFormation テンプレートによって作成されたものです。
 
-## Front end
-The front end is an Angular 1.5 web app that uses `$resource` objects to perform CRUD operations on resources defined by the API. Users first encounter the [main view](https://github.com/awslabs/eb-java-scorekeep/blob/fargate/scorekeep-frontend/public/main.html) and [controller](https://github.com/awslabs/eb-java-scorekeep/blob/fargate/scorekeep-frontend/public/app/mainController.js) and progress through session and game views at routes that include the IDs of resources that the user creates.
+## フロントエンド
+フロントエンドアプリケーションは Angular 1.5 を利用して作成されたウェブアプリケーションで、`$resource` オブジェクトを利用して API で定義されたリソース群への CRUD オペレーションを実行しています。このアプリケーションのユーザーが最初に開くであろう画面は[メイン画面](https://github.com/toricls/eb-java-scorekeep/blob/fargate/scorekeep-frontend/public/main.html) で、JavaScript で書かれた[コントローラ](https://github.com/toricls/eb-java-scorekeep/blob/fargate/scorekeep-frontend/public/app/mainController.js)が内部で実行されています。その後、ユーザーがリソース(セッションやゲームなど)を作成すると、それらの ID をパス(URL)に含むルートに移動することで、セッションやゲーム画面に進んでいきます。
 
-The front end is served statically by an Nginx container. The [nginx.conf](https://github.com/awslabs/eb-java-scorekeep/blob/fargate/scorekeep-frontend/nginx.conf) file in the source code sets up Nginx to serve the frontend html pages from root, and forward requests starting with /api to the API backend running on port 5000. 
+フロントエンドアプリケーションは Nginx コンテナから静的なコンテンツとして配信されてます。Nginx は scorekeep-frontend ディレクトリに含まれる [nginx.conf](https://github.com/toricls/eb-java-scorekeep/blob/fargate/scorekeep-frontend/nginx.conf) ファイルによって設定され、ルートパスへのアクセスではフロントエンドアプリケーションの HTML ページを、/api で始まるパスへのアクセスについてはポート5000番で待ち受けるバックエンドアプリケーションに対してリクエストをフォワードします。
 
-# Running the project locally
-You can run both the API and front-end locally with Docker
-To get started, clone this repository.
+# ローカル環境でアプリケーションを実行する
+フロントエンド、バックエンドアプリケーションは双方ともに Docker コンテナで動作するため、ローカル環境でも実行することができます。
 
-## Run the Scorekeep API with Docker
+## バックエンドアプリケーション(API)をローカル環境で Docker コンテナとして実行する
 
-The API requires DynamoDB tables and SNS topic to exist in AWS to run locally. To create the tables and SNS topic run the Cloudformation template with `make stack` after setting the desired region in `aws.env`
+*注: バックエンドアプリケーションはデータの格納先として DynamoDB を、Eメール通知を設定している場合は SNS を利用します。そのため、以下の手順は[アプリケーションのデプロイ手順](#アプリケーションのデプロイ手順)セクションの1番、CloudFormation スタック作成が完了していることを前提としています。*
 
-After the Cloudformation stack has finished creating execute `make run-local` in the root directory to start the API container. You can later do `docker attach` to follow log output or `docker ps` to view the current state. When running local we use `net=host` networking mode in Docker as this is most simialr to the `awsvpc` network mode on ECS.
+リポジトリのルートディレクトに移動し、`make run-local` コマンドを実行します。実行後、`docker logs` コマンドを利用してアプリケーションのログを確認したり、`docker ps` や `docker stats` コマンドを利用して現在の状態を確認したりすることができます。
 
-The application needs AWS credentials to communicate with DynamoDB. In ECS, Scorekeep gets credentials from the task role. When you run the application locally, we will mount in ~/.aws/ to the container where the AWS SDK for Java will retrieve credentials. You can also configure your credentials as environment variables if you prefer.
+本アプリケーションは、ECS 上での実行時にはネットワークモードとして `awsvpc` を利用していますが、ローカル環境での実行時には awsvpc と似た構成である `host` ネットワークモードを利用しています。
 
-Follow the instructions in the *AWS SDK for Java Developer Guide* to provide access keys to the application: [Set up AWS Credentials for Development](http://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html).
+バックエンドアプリケーションは DynamoDB や SNS(任意利用)と通信を行うために AWS クレデンシャルを必要とします。ECS での実行時は、アプリケーションはクレデンシャルをタスク定義で設定されたタスクロールを利用して取得しますが、ローカル環境での実行時には ~/.aws/ ディレクトリをコンテナにマウントすることで AWS SDK for Java がクレデンシャルを利用できるようにしています。これ以外にも、例えば環境変数としてクレデンシャルを渡すことも可能です。
 
-Use the test script to verify that the API works.
+環境変数を利用してアプリケーションにアクセスキーを渡す方法については、*AWS SDK for Java 開発者ガイド* も合わせてご覧ください: [開発用の AWS 認証情報のセットアップ](https://docs.aws.amazon.com/ja_jp/sdk-for-java/v1/developer-guide/setup-credentials.html).
 
-    ~/eb-java-scorekeep$ ./bin/test-api.sh
+(*訳者注: AWS は 2019/3/27 に [Amazon ECS Local Container Endpoints](https://github.com/awslabs/amazon-ecs-local-container-endpoints) をオープンソースとして公開しました。こちらのツールを利用すると、ローカル環境でも ECS タスクロールと同様の方式で AWS クレデンシャルをアプリケーションから利用できます。*)
 
-The script targets `localhost:5000`. However, you can point it at the API running on any hostname or IP by modifying the API variable at the top of the file.
+ローカル環境でバックエンドアプリケーションのコンテナが実行できたら、テストスクリプトを使って API が動作していることを確認してみましょう。
 
-## Run the Scorekeep Frontend with Docker
+```
+~/eb-java-scorekeep$ ./bin/test-api.sh
+```
 
-You can run the frontend container locally by executing `make run-local` from the `scorekeep-frontend` directory. As with the API container this runs with `net=host` as the networkmode. You should be able to hit it locally with a web browser or curl on [localhost:8080](http://localhost:8080)
+上記のスクリプトは API エンドポイントとして `localhost:5000` を利用します。スクリプトを編集し、API エンドポイントを書き換えることでローカル環境以外にデプロイしたバックエンドアプリケーションに対しても動作確認を実行できます。
 
-# Contributing
+## フロントエンドアプリケーションをローカル環境で Docker コンテナとして実行する
+
+`scorekeep-frontend` ディレクトリに移動し、`make run-local` コマンドを実行します。バックエンドアプリケーションのコンテナ同様、ここで実行されるコンテナもネットワークモードとして `host` を利用しています。これにより、ブラウザもしくは curl コマンドなどで [localhost:8080](http://localhost:8080)にアクセスすることでフロントエンドアプリケーションの動作を確認することができます。
+
+# コントリビューション
 
 This sample application could be better with your help!
 
 - Add a new game!
-  - Implement game logic in the game class. See [TicTacToe.java](https://github.com/awslabs/eb-java-scorekeep/blob/fargate/src/main/java/scorekeep/TicTacToe.java).
-  - Add the class to [RulesFactory.java](https://github.com/awslabs/eb-java-scorekeep/blob/fargate/src/main/java/scorekeep/RulesFactory.java).
+  - Implement game logic in the game class. See [TicTacToe.java](https://github.com/toricls/eb-java-scorekeep/blob/fargate/src/main/java/scorekeep/TicTacToe.java).
+  - Add the class to [RulesFactory.java](https://github.com/toricls/eb-java-scorekeep/blob/fargate/src/main/java/scorekeep/RulesFactory.java).
 - Create your own client front end!
   - Web frameworks - Angular 2, React, ember, etc.
   - Mobile app
