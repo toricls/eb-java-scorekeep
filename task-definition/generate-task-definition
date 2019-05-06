@@ -15,14 +15,15 @@ PARAMETERS_PATH="${DIR}/${PARAMETERS_FILE}"
 echo "Sourcing paramters from ${PARAMETERS_PATH}"
 source ${PARAMETERS_PATH}
 
-if [[ -z "${ACCOUNT_ID}" || -z "${AWS_REGION}" ]]; then
-	echo "Must specify both ACCOUNT_ID and AWS_REGION in ${PARAMETERS_PATH}"
+if [[ -z "${ACCOUNT_ID}" || -z "${AWS_REGION}" || -z "${IAM_USER_NAME}" ]]; then
+	echo "Must specify ACCOUNT_ID, AWS_REGION and IAM_USER_NAME in ${PARAMETERS_PATH}"
 	exit 1
 fi
 
 echo "Configuring region to: ${AWS_REGION}"
 echo "Configuring account id to: ${ACCOUNT_ID}"
+echo "Configuring IAM user name to: ${IAM_USER_NAME}"
 
-sed -e 's/\$\$REGION\$\$/'"${AWS_REGION}"'/g' -e 's/\$\$ACCOUNT_ID\$\$/'"${ACCOUNT_ID}"'/g' ${TASK_DEFINITION_INPUT_PATH} > ${TASK_DEFINITION_OUTPUT_PATH}
+sed -e 's/\$\$REGION\$\$/'"${AWS_REGION}"'/g' -e 's/\$\$ACCOUNT_ID\$\$/'"${ACCOUNT_ID}"'/g' -e 's/\$\$IAM_USER_NAME\$\$/'"${IAM_USER_NAME}"'/g' ${TASK_DEFINITION_INPUT_PATH} > ${TASK_DEFINITION_OUTPUT_PATH}
 
 echo "Task Definition written to: ${TASK_DEFINITION_OUTPUT_PATH}"

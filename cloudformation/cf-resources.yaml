@@ -1,22 +1,26 @@
+Parameters:
+  IAMUserName:
+    Type: String
+
 Resources:
   UserTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: "scorekeep-user"
+      TableName: !Sub "${IAMUserName}-scorekeep-user"
       KeySchema:
         HashKeyElement: {AttributeName: id, AttributeType: S}
       ProvisionedThroughput: {ReadCapacityUnits: 2, WriteCapacityUnits: 2}
   SessionTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: "scorekeep-session"
+      TableName: !Sub "${IAMUserName}-scorekeep-session"
       KeySchema:
         HashKeyElement: {AttributeName: id, AttributeType: S}
       ProvisionedThroughput: {ReadCapacityUnits: 2, WriteCapacityUnits: 2}
   GameTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: "scorekeep-game"
+      TableName: !Sub "${IAMUserName}-scorekeep-game"
       AttributeDefinitions:
         - AttributeName: "id"
           AttributeType: "S"
@@ -36,7 +40,7 @@ Resources:
   MoveTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: "scorekeep-move"
+      TableName: !Sub "${IAMUserName}-scorekeep-move"
       AttributeDefinitions:
         - AttributeName: "id"
           AttributeType: "S"
@@ -56,7 +60,7 @@ Resources:
   StateTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: "scorekeep-state"
+      TableName: !Sub "${IAMUserName}-scorekeep-state"
       AttributeDefinitions:
         - AttributeName: "id"
           AttributeType: "S"
@@ -76,20 +80,20 @@ Resources:
   NotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: "scorekeep-notifications"
+      TopicName: !Sub "${IAMUserName}-scorekeep-notifications"
   CloudwatchLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: "scorekeep"
+      LogGroupName: !Sub "${IAMUserName}-scorekeep"
       RetentionInDays: 30
   ScorekeepAPIRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: "scorekeep-api"
+      RepositoryName: !Sub "${IAMUserName}-scorekeep-api"
   ScorekeepFrontendRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: "scorekeep-frontend"
+      RepositoryName: !Sub "${IAMUserName}-scorekeep-frontend"
   ECSExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -106,7 +110,7 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
         - "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
-      RoleName: "scorekeepExecutionRole"
+      RoleName: !Sub "${IAMUserName}-scorekeepExecutionRole"
   ECSTaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -123,7 +127,7 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
-      RoleName: "scorekeepRole"
+      RoleName: !Sub "${IAMUserName}-scorekeepRole"
   PubPrivateVPC:
     Type: 'AWS::EC2::VPC'
     Properties:
@@ -275,7 +279,7 @@ Resources:
   ScorekeepLoadBalancer:
     Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
     Properties:
-      Name: "scorekeep-lb"
+      Name: !Sub "${IAMUserName}-scorekeep-lb"
       Scheme: "internet-facing"
       SecurityGroups:
         - !Ref ScorekeepLbSecurityGroup
@@ -284,7 +288,7 @@ Resources:
         - !Ref PublicSubnet2
       Tags:
         - Key: Name
-          Value: !Join [_, [!Ref 'AWS::StackName']]
+          Value: !Join [_, [!Ref 'IAMUserName', '-', !Ref 'AWS::StackName']]
       Type: "application"
       IpAddressType: "ipv4"
     DependsOn: ScorekeepLbSecurityGroup

@@ -20,13 +20,16 @@ check-account:
 check-region:
 	test -n "$(AWS_REGION)" || (echo "AWS_REGION must be defined in aws.env"; exit 1)
 
-check-env: check-repo check-region check-account
+check-iam-user:
+	test -n "$(IAM_USER_NAME)" || (echo "IAM_USER_NAME must be defined in aws.env"; exit 1)
+
+check-env: check-repo check-region check-account check-iam-user
 
 tag: package check-env
 	docker tag scorekeep-api:latest $(ECR_REPO)
 
 run-local: package check-env
-	docker run -d -v ~/.aws/:/root/.aws/:ro --net=host -e AWS_REGION=$(AWS_REGION) -e NOTIFICATION_TOPIC=arn:aws:sns:$(AWS_REGION):$(ACCOUNT_ID):scorekeep-notifications scorekeep-api
+	docker run -d -v ~/.aws/:/root/.aws/:ro --net=host -e AWS_REGION=$(AWS_REGION) -e NOTIFICATION_TOPIC=arn:aws:sns:$(AWS_REGION):$(ACCOUNT_ID):$(IAM_USER_NAME)-scorekeep-notifications scorekeep-api
 
 login: check-region
 	@$(shell aws ecr get-login --no-include-email --region $(AWS_REGION))

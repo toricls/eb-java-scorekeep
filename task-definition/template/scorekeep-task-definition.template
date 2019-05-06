@@ -1,10 +1,10 @@
 {
-    "family": "scorekeep",
+    "family": "$$IAM_USER_NAME$$-scorekeep",
     "networkMode":"awsvpc",
      "containerDefinitions": [
          {
           "name": "scorekeep-frontend",                                                          
-          "image": "$$ACCOUNT_ID$$.dkr.ecr.$$REGION$$.amazonaws.com/scorekeep-frontend",
+          "image": "$$ACCOUNT_ID$$.dkr.ecr.$$REGION$$.amazonaws.com/$$IAM_USER_NAME$$-scorekeep-frontend",
           "cpu": 64,
           "memoryReservation": 512,
           "portMappings" : [
@@ -15,7 +15,7 @@
           "logConfiguration": {
               "logDriver": "awslogs",
               "options": {
-                  "awslogs-group": "scorekeep",
+                  "awslogs-group": "$$IAM_USER_NAME$$-scorekeep",
                   "awslogs-region": "$$REGION$$",
                   "awslogs-stream-prefix": "scorekeep/frontend"
               }
@@ -23,12 +23,13 @@
          },
          {
           "name": "scorekeep-api",                                                          
-          "image": "$$ACCOUNT_ID$$.dkr.ecr.$$REGION$$.amazonaws.com/scorekeep-api",
+          "image": "$$ACCOUNT_ID$$.dkr.ecr.$$REGION$$.amazonaws.com/$$IAM_USER_NAME$$-scorekeep-api",
           "cpu": 192,
           "memoryReservation": 512,
           "environment": [
               { "name" : "AWS_REGION", "value" : "$$REGION$$" },
-              { "name" : "NOTIFICATION_TOPIC", "value" : "arn:aws:sns:$$REGION$$:$$ACCOUNT_ID$$:scorekeep-notifications" }
+              { "name" : "NOTIFICATION_TOPIC", "value" : "arn:aws:sns:$$REGION$$:$$ACCOUNT_ID$$:$$IAM_USER_NAME$$-scorekeep-notifications" },
+              { "name" : "IAM_USER_NAME", "value" : "$$IAM_USER_NAME$$" }
           ],
           "portMappings" : [
               {
@@ -38,15 +39,15 @@
           "logConfiguration": {
               "logDriver": "awslogs",
               "options": {
-                  "awslogs-group": "scorekeep",
+                  "awslogs-group": "$$IAM_USER_NAME$$-scorekeep",
                   "awslogs-region": "$$REGION$$",
                   "awslogs-stream-prefix": "scorekeep/api"
               }
           }
          }
     ],
-    "executionRoleArn": "arn:aws:iam::$$ACCOUNT_ID$$:role/scorekeepExecutionRole",
-    "taskRoleArn": "arn:aws:iam::$$ACCOUNT_ID$$:role/scorekeepRole",
+    "executionRoleArn": "arn:aws:iam::$$ACCOUNT_ID$$:role/$$IAM_USER_NAME$$-scorekeepExecutionRole",
+    "taskRoleArn": "arn:aws:iam::$$ACCOUNT_ID$$:role/$$IAM_USER_NAME$$-scorekeepRole",
     "requiresCompatibilities": [
         "FARGATE"
     ],
