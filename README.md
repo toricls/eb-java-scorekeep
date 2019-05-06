@@ -1,5 +1,5 @@
 # Scorekeep
-Scorekeep は Java で実装された RESTful な Web API で、ゲームセッションやユーザー管理のための HTTP のインタフェースを Spring を使って提供しています。このプロジェクトは Scorekeep API とその API を呼び出すフロントエンドのウェブアプリで構成されています。フロントエンドアプリケーションと APIA は同一サーバー・同一ドメインで実行することもできますし、別々、例えば API は Fargate で実行されるコンテナから、フロントエンドは静的コンテンツとして CDN 経由で公開することも可能です。
+Scorekeep は Java で実装された RESTful な Web API で、ゲームセッションやユーザー管理のための HTTP のインタフェースを Spring を使って提供しています。このプロジェクトは Scorekeep API とその API を呼び出すフロントエンドのウェブアプリで構成されています。フロントエンドアプリケーションと API は同一サーバー・同一ドメインで実行することもできますし、別々、例えば API は Fargate で実行されるコンテナから、フロントエンドは静的コンテンツとして CDN 経由で公開することも可能です。
 
 `fargate` ブランチは Spring, Angular, nginx, [AWS SDK for Java](http://aws.amazon.com/sdkforjava), [Amazon DynamoDB](http://aws.amazon.com/dynamodb), Gradle, [Amazon ECS + AWS Fargate](http://aws.amazon.com/ecs) を利用して次のようなことを行なっていきます:
 
